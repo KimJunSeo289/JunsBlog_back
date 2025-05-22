@@ -131,3 +131,97 @@ app.post("/logout", (req, res) => {
 app.listen(port, () => {
   console.log(`${port} 포트에서 돌고있음`);
 });
+
+import { fileURLToPath } from "url";
+import { postModel } from "./models/Post.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+// __dirname 설정 (ES 모듈에서는 __dirname이 기본적으로 제공되지 않음)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// uploads 폴더의 파일들을 /uploads 경로로 제공
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// 정적 파일 접근 시 CORS 오류를 방지하기 위한 설정
+app.get("/uploads/:filename", (req, res) => {
+  const { filename } = req.params;
+  res.sendFile(path.join(__dirname, "uploads", filename));
+});
+
+const uploadDir = "uploads";
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage });
+
+app.post("/postWrite", upload.single("files"), async (req, res) => {
+  try {
+    const { title, summary, content } = req.body;
+    const { token } = req.cookies;
+    if (!token) {
+      return res.status(401).json({ error: "로그인 필요" });
+    }
+
+    const userInfo = jwt.verify(token, secretKey);
+
+    const postData = {
+      title,
+      summary,
+      content,
+      cover: req.file ? req.file.path : null, // 파일 경로 저장
+      author: userInfo.username,
+    };
+
+    await postModel.create(postData);
+    console.log("포스트 등록 성공");
+
+    res.json({ message: "포스트 글쓰기 성공" });
+  } catch (err) {
+    console.log("에러", err);
+    return res.status(500).json({ error: "서버 에러" });
+  }
+});
+
+// 글 목록 조회 API - 페이지네이션 추가
+app.get("/postlist", async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 0; // 페이지 번호 (0부터 시작)
+    const limit = parseInt(req.query.limit) || 3; // 한 페이지당 게시물 수 (기본값 3)
+    const skip = page * limit; // 건너뛸 게시물 수
+
+    // 총 게시물 수 조회
+    const total = await postModel.countDocuments();
+
+    // 페이지네이션 적용하여 게시물 조회
+    const posts = await postModel
+      .find()
+      .sort({ createdAt: -1 }) // 최신순 정렬
+      .skip(skip)
+      .limit(limit);
+
+    // 마지막 페이지 여부 확인
+    const hasMore = total > skip + posts.length;
+
+    res.json({
+      posts,
+      hasMore,
+      total,
+    });
+  } catch (err) {
+    console.error("게시물 조회 오류:", err);
+    res.status(500).json({ error: "게시물 조회에 실패했습니다." });
+  }
+});

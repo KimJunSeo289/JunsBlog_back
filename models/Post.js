@@ -22,15 +22,10 @@ const postSchema = new Schema(
       type: String,
       required: true,
     },
-    likes: {
-      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
-      default: [],
-      required: false,
-    },
   },
   {
     timestamps: true,
   }
 );
 
-export const Post = model("Post", postSchema);
+export const postModel = model("Post", postSchema);
