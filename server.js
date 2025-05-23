@@ -199,7 +199,7 @@ app.post("/postWrite", upload.single("files"), async (req, res) => {
 app.get("/postlist", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 0; // 페이지 번호 (0부터 시작)
-    const limit = parseInt(req.query.limit) || 3; // 한 페이지당 게시물 수 (기본값 3)
+    const limit = parseInt(req.query.limit) || 3; // 한 페이지당 게시물 수
     const skip = page * limit; // 건너뛸 게시물 수
 
     // 총 게시물 수 조회
@@ -212,11 +212,23 @@ app.get("/postlist", async (req, res) => {
       .skip(skip)
       .limit(limit);
 
+    // 각 포스트의 댓글 수 조회
+    const postsWithCommentCounts = await Promise.all(
+      posts.map(async (post) => {
+        const commentCount = await commentModel.countDocuments({
+          postId: post._id,
+        });
+        const postObject = post.toObject();
+        postObject.commentCount = commentCount;
+        return postObject;
+      })
+    );
+
     // 마지막 페이지 여부 확인
     const hasMore = total > skip + posts.length;
 
     res.json({
-      posts,
+      posts: postsWithCommentCounts,
       hasMore,
       total,
     });
@@ -234,7 +246,15 @@ app.get("/post/:postId", async (req, res) => {
     if (!post) {
       return res.status(404).json({ error: "게시물을 찾을 수 없습니다." });
     }
-    res.json(post);
+
+    // 댓글 수 조회
+    const commentCount = await commentModel.countDocuments({ postId });
+
+    // 응답 객체 생성
+    const postWithCommentCount = post.toObject();
+    postWithCommentCount.commentCount = commentCount;
+
+    res.json(postWithCommentCount);
   } catch (err) {
     console.error("게시물 상세 조회 오류:", err);
     res.status(500).json({ error: "게시물 상세 조회에 실패했습니다." });
@@ -434,5 +454,119 @@ app.put("/comments/:commentId", async (req, res) => {
   } catch (err) {
     console.error("댓글 수정 오류:", err);
     res.status(500).json({ message: "댓글 수정에 실패했습니다." });
+  }
+});
+
+app.get("/postlist", async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 0; // 페이지 번호 (0부터 시작)
+    const limit = parseInt(req.query.limit) || 3; // 한 페이지당 게시물 수
+    const skip = page * limit; // 건너뛸 게시물 수
+
+    // 총 게시물 수 조회
+    const total = await postModel.countDocuments();
+
+    // 페이지네이션 적용하여 게시물 조회
+    const posts = await postModel
+      .find()
+      .sort({ createdAt: -1 }) // 최신순 정렬
+      .skip(skip)
+      .limit(limit);
+
+    // 각 포스트의 댓글 수 조회
+    const postsWithCommentCounts = await Promise.all(
+      posts.map(async (post) => {
+        const commentCount = await commentModel.countDocuments({
+          postId: post._id,
+        });
+        const postObject = post.toObject();
+        postObject.commentCount = commentCount;
+        return postObject;
+      })
+    );
+
+    // 마지막 페이지 여부 확인
+    const hasMore = total > skip + posts.length;
+
+    res.json({
+      posts: postsWithCommentCounts,
+      hasMore,
+      total,
+    });
+  } catch (err) {
+    console.error("게시물 조회 오류:", err);
+    res.status(500).json({ error: "게시물 조회에 실패했습니다." });
+  }
+});
+
+// 사용자 정보 조회 API
+app.get("/user/:username", async (req, res) => {
+  try {
+    const { username } = req.params;
+    const user = await userModel.findOne({ username }, { password: 0 });
+
+    if (!user) {
+      return res.status(404).json({ error: "사용자를 찾을 수 없습니다." });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error("사용자 정보 조회 오류:", err);
+    res.status(500).json({ error: "사용자 정보 조회에 실패했습니다." });
+  }
+});
+
+// 사용자가 작성한 글 조회 API
+app.get("/user/:username/posts", async (req, res) => {
+  try {
+    const { username } = req.params;
+    const posts = await postModel
+      .find({ author: username })
+      .sort({ createdAt: -1 });
+
+    res.json(posts);
+  } catch (err) {
+    console.error("사용자 게시물 조회 오류:", err);
+    res.status(500).json({ error: "사용자 게시물 조회에 실패했습니다." });
+  }
+});
+
+// 사용자가 작성한 댓글 조회 API
+app.get("/user/:username/comments", async (req, res) => {
+  try {
+    const { username } = req.params;
+    const comments = await commentModel
+      .find({ author: username })
+      .sort({ createdAt: -1 });
+
+    res.json(comments);
+  } catch (err) {
+    console.error("사용자 댓글 조회 오류:", err);
+    res.status(500).json({ error: "사용자 댓글 조회에 실패했습니다." });
+  }
+});
+
+// 사용자가 좋아요 클릭한 글 조회 API
+app.get("/user/:username/likes", async (req, res) => {
+  try {
+    const { username } = req.params;
+    // 먼저 사용자 ID 찾기
+    const user = await userModel.findOne({ username });
+
+    if (!user) {
+      return res.status(404).json({ error: "사용자를 찾을 수 없습니다." });
+    }
+
+    // 사용자가 좋아요한 게시물 찾기
+    const likedPosts = await postModel
+      .find({ likes: user._id })
+      .sort({ createdAt: -1 });
+
+    res.json(likedPosts);
+  } catch (err) {
+    console.error("사용자 좋아요 게시물 조회 오류:", err);
+    res
+      .status(500)
+      .json({ error: "사용자 좋아요 게시물 조회에 실패했습니다." });
   }
 });
