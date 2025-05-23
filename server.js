@@ -391,3 +391,48 @@ app.get("/comments/:postId", async (req, res) => {
     res.status(500).json({ message: "서버 에러" });
   }
 });
+
+// 댓글 삭제
+app.delete("/comments/:commentId", async (req, res) => {
+  const { commentId } = req.params;
+
+  try {
+    const comment = await commentModel.findByIdAndDelete(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: "댓글을 찾을 수 없습니다." });
+    }
+    // res.json(comment);
+    res.json({ message: "댓글이 삭제되었습니다." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "서버 에러" });
+  }
+});
+
+//댓글 수정
+app.put("/comments/:commentId", async (req, res) => {
+  const { commentId } = req.params;
+  const { content } = req.body;
+
+  // 유효한 ObjectId인지 확인
+  if (!mongoose.Types.ObjectId.isValid(commentId)) {
+    return res.status(400).json({ message: "유효하지 않은 댓글 ID입니다." });
+  }
+
+  try {
+    const updatedComment = await commentModel.findByIdAndUpdate(
+      commentId,
+      { content },
+      { new: true } // 수정 후의 새로운 문서를 반환
+    );
+
+    if (!updatedComment) {
+      return res.status(404).json({ message: "댓글을 찾을 수 없습니다." });
+    }
+
+    res.json(updatedComment);
+  } catch (err) {
+    console.error("댓글 수정 오류:", err);
+    res.status(500).json({ message: "댓글 수정에 실패했습니다." });
+  }
+});
