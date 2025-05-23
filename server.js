@@ -352,3 +352,42 @@ app.post("/like/:postId", async (req, res) => {
     res.status(500).json({ message: "서버 에러" });
   }
 });
+
+import { commentModel } from "./models/Comment.js";
+
+// 댓글 작성 API
+app.post("/comments", async (req, res) => {
+  const { content, author, postId } = req.body;
+
+  try {
+    const newComment = await commentModel.create({
+      content,
+      author,
+      postId,
+    });
+
+    res.status(201).json(newComment);
+  } catch (error) {
+    console.error("댓글 작성 오류:", error);
+    res.status(500).json({ error: "댓글 작성에 실패했습니다." });
+  }
+});
+
+// 글 상세 조회 API
+app.get("/comments/:postId", async (req, res) => {
+  try {
+    const { postId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ message: "유효하지 않은 postId입니다." });
+    }
+
+    const comments = await commentModel
+      .find({ postId: new mongoose.Types.ObjectId(postId) })
+      .sort({ createdAt: -1 });
+
+    res.json(comments);
+  } catch (err) {
+    console.error("Error fetching comments:", err);
+    res.status(500).json({ message: "서버 에러" });
+  }
+});
