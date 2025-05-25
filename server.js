@@ -13,6 +13,7 @@ import authRoutes from "./routes/authRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import commentRoutes from "./routes/commentRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import kakaoAuthRoutes from "./routes/kakaoAuthRoutes.js";
 
 // 데이터베이스 연결
 import connectDB from "./config/db.js";
@@ -56,6 +57,7 @@ app.use("/auth", authRoutes); // /auth/register, /auth/login 등
 app.use("/posts", postRoutes); // /posts, /posts/:postId 등
 app.use("/comments", commentRoutes); // /comments, /comments/:postId 등
 app.use("/users", userRoutes); // /users/:username, /users/update 등
+app.use("/auth/kakao", kakaoAuthRoutes);
 
 // 404 처리 - 정의되지 않은 경로에 대한 처리
 app.use((req, res) => {
