@@ -1,4 +1,6 @@
 import { User } from "../models/User.js";
+import { Comment } from "../models/Comment.js";
+import { Post } from "../models/Post.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { secretKey, tokenLife, cookieOptions } from "../config/jwt.js";
@@ -48,7 +50,6 @@ export const login = async (req, res) => {
         expiresIn: tokenLife,
       });
 
-      // 쿠키에 토큰 저장
       res.cookie("token", token, cookieOptions).json({
         id: userDoc._id,
         username,
@@ -83,4 +84,31 @@ export const logout = (req, res) => {
   res
     .cookie("token", "", logoutCookieOptions)
     .json({ message: "로그아웃 되었음" });
+};
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const username = req.user.username;
+
+    await Comment.deleteMany({ author: username });
+
+    await Post.deleteMany({ author: username });
+
+    await Post.updateMany({ likes: userId }, { $pull: { likes: userId } });
+
+    await User.findByIdAndDelete(userId);
+
+    const logoutCookieOptions = {
+      ...cookieOptions,
+      maxAge: 0,
+    };
+
+    res
+      .cookie("token", "", logoutCookieOptions)
+      .json({ message: "계정이 성공적으로 삭제되었습니다." });
+  } catch (err) {
+    console.error("회원 탈퇴 오류:", err);
+    res.status(500).json({ error: "회원 탈퇴에 실패했습니다." });
+  }
 };

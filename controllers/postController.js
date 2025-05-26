@@ -88,6 +88,7 @@ export const deletePost = async (req, res) => {
     if (!post) {
       return res.status(404).json({ error: "게시물을 찾을 수 없습니다." });
     }
+    await Comment.deleteMany({ postId });
     res.json({ message: "게시물이 삭제되었습니다." });
   } catch (err) {
     console.error("게시물 삭제 오류:", err);
