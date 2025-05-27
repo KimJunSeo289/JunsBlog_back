@@ -28,28 +28,54 @@ export const getPosts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 3;
     const skip = page * limit;
 
+    const sort = req.query.sort || "createdAt";
+    let sortStage = { createdAt: -1 };
+
+    if (sort === "likes") {
+      sortStage = { likesCount: -1 };
+    } else if (sort === "commentCount") {
+      sortStage = { commentCount: -1 };
+    }
+
+    const posts = await Post.aggregate([
+      // 좋아요 수 필드 추가
+      {
+        $addFields: {
+          likesCount: { $size: { $ifNull: ["$likes", []] } },
+        },
+      },
+      // 댓글 조인 및 수 세기
+      {
+        $lookup: {
+          from: "comments", // Comment 모델의 실제 컬렉션 이름 (소문자 + 복수형 주의!)
+          localField: "_id",
+          foreignField: "postId",
+          as: "comments",
+        },
+      },
+      {
+        $addFields: {
+          commentCount: { $size: "$comments" },
+        },
+      },
+      // 정렬
+      { $sort: sortStage },
+      // 페이징
+      { $skip: skip },
+      { $limit: limit },
+      // 댓글 목록 제거 (필요 시 제거)
+      {
+        $project: {
+          comments: 0,
+        },
+      },
+    ]);
+
     const total = await Post.countDocuments();
-    const posts = await Post.find()
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    // 각 포스트의 댓글 수 조회
-    const postsWithCommentCounts = await Promise.all(
-      posts.map(async (post) => {
-        const commentCount = await Comment.countDocuments({
-          postId: post._id,
-        });
-        const postObject = post.toObject();
-        postObject.commentCount = commentCount;
-        return postObject;
-      })
-    );
-
     const hasMore = total > skip + posts.length;
 
     res.json({
-      posts: postsWithCommentCounts,
+      posts,
       hasMore,
       total,
     });
