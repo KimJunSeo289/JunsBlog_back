@@ -32,9 +32,9 @@ export const getPosts = async (req, res) => {
     let sortStage = { createdAt: -1 };
 
     if (sort === "likes") {
-      sortStage = { likesCount: -1 };
+      sortStage = { likesCount: -1, createdAt: -1 };
     } else if (sort === "commentCount") {
-      sortStage = { commentCount: -1 };
+      sortStage = { commentCount: -1, createdAt: -1 };
     }
 
     const posts = await Post.aggregate([
