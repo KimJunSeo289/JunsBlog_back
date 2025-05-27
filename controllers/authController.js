@@ -36,8 +36,9 @@ export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
     const userDoc = await User.findOne({ username });
+
     if (!userDoc) {
-      return res.status(401).json({ error: "없는 사용자 입니다." });
+      return res.status(404).json({ error: "없는 사용자 입니다." });
     }
 
     const passOk = bcrypt.compareSync(password, userDoc.password);
