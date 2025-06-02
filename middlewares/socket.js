@@ -1,9 +1,11 @@
 import { Server } from "socket.io";
 import ChatMessage from "../models/ChatMessage.js"; // 방금 만든 모델 import
+import dotenv from "dotenv";
+dotenv.config();
 
 export default function setupSocket(server) {
   const io = new Server(server, {
-    cors: { origin: "*" },
+    cors: { origin: process.env.FRONTEND_URL },
   });
 
   io.on("connection", async (socket) => {
