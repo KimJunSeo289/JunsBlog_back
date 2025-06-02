@@ -1,4 +1,4 @@
-// server.js (계속)
+import http from "http"; // <= 이거 꼭 추가!
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -20,6 +20,7 @@ import connectDB from "./config/db.js";
 
 // 에러 핸들러
 import { errorHandler } from "./utils/errorHandler.js";
+import setupSocket from "./middlewares/socket.js";
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -67,8 +68,13 @@ app.use((req, res) => {
 // 에러 핸들러 미들웨어
 app.use(errorHandler);
 
+const server = http.createServer(app);
+
+// *** 소켓 세팅 연결 ***
+setupSocket(server);
+
 // 서버 시작
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`서버가 ${port} 포트에서 실행 중입니다.`);
 });
 
